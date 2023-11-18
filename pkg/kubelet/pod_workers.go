@@ -30,13 +30,15 @@ import (
 	"k8s.io/client-go/tools/record"
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/clock"
+
 	kubecontainer "k8s.io/kubernetes/pkg/kubelet/container"
 	"k8s.io/kubernetes/pkg/kubelet/events"
 	"k8s.io/kubernetes/pkg/kubelet/eviction"
 	"k8s.io/kubernetes/pkg/kubelet/metrics"
 	kubetypes "k8s.io/kubernetes/pkg/kubelet/types"
 	"k8s.io/kubernetes/pkg/kubelet/util/queue"
-	"k8s.io/utils/clock"
+	mylog "k8s.io/kubernetes/read"
 )
 
 // OnCompleteFunc is a function that is invoked when an operation completes.
@@ -749,6 +751,7 @@ func (p *podWorkers) UpdatePod(options UpdatePodOptions) {
 				return
 			}
 			uid, ns, name = runningPod.ID, runningPod.Namespace, runningPod.Name
+			mylog.Message("isRuntimePod")
 			isRuntimePod = true
 		} else {
 			options.RunningPod = nil
@@ -767,6 +770,7 @@ func (p *podWorkers) UpdatePod(options UpdatePodOptions) {
 	now := p.clock.Now()
 	status, ok := p.podSyncStatuses[uid]
 	if !ok {
+		mylog.Message("The first time")
 		klog.V(4).InfoS("Pod is being synced for the first time", "pod", klog.KRef(ns, name), "podUID", uid, "updateType", options.UpdateType)
 		firstTime = true
 		status = &podSyncStatus{
@@ -925,6 +929,7 @@ func (p *podWorkers) UpdatePod(options UpdatePodOptions) {
 	// start the pod worker goroutine if it doesn't exist
 	podUpdates, exists := p.podUpdates[uid]
 	if !exists {
+		mylog.Message("start the pod worker goroutine if it doesn't exist")
 		// buffer the channel to avoid blocking this method
 		podUpdates = make(chan struct{}, 1)
 		p.podUpdates[uid] = podUpdates
@@ -1211,6 +1216,7 @@ func podUIDAndRefForUpdate(update UpdatePodOptions) (types.UID, klog.ObjectRef) 
 // caller. When a pod transitions working->terminating or terminating->terminated, the next update is
 // queued immediately and no kubelet action is required.
 func (p *podWorkers) podWorkerLoop(podUID types.UID, podUpdates <-chan struct{}) {
+	mylog.Message("podWorkerLoop")
 	var lastSyncTime time.Time
 	for range podUpdates {
 		ctx, update, canStart, canEverStart, ok := p.startPodSync(podUID)
